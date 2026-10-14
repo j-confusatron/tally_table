@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tally Table">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e6e9ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12151a" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+</style>
+<title>Tally Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600&family=Saira+Extra+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: one-screen tool. Header (title, per-tap amount, new game) over a scrolling grid of counter tiles.
+   Life spans the full width. Every tile is split into a minus half and a plus half.
+   The five mana colours appear only as pips and tints, so the numbers stay readable. */
+:root{
+  --font-display:"Saira Extra Condensed","Arial Narrow","Helvetica Neue",sans-serif;
+  --font-body:"Albert Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --bg:#e6e9ee;
+  --surface:#f6f7f9;
+  --surface-2:#e9edf1;
+  --ink:#15191f;
+  --muted:#56606c;
+  --line:#c9d0d8;
+  --accent:#3556d8;
+  --danger:#b3301d;
+  --on-danger:#ffffff;
+  --scrim:rgba(15,18,24,.45);
+  --w:#e2d79e;
+  --u:#2c7cc0;
+  --b:#54445f;
+  --r:#d0472c;
+  --g:#3a8752;
+  --c:#858d96;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151a;
+    --surface:#1b2027;
+    --surface-2:#252b34;
+    --ink:#eef1f5;
+    --muted:#9aa3af;
+    --line:#2f3641;
+    --accent:#7f9bff;
+    --danger:#ff7b66;
+    --on-danger:#1a0a07;
+    --scrim:rgba(0,0,0,.6);
+    --w:#e6dba6;
+    --u:#5aa6e8;
+    --b:#a592b4;
+    --r:#f0694d;
+    --g:#5fbb7c;
+    --c:#a2abb5;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151a;
+  --surface:#1b2027;
+  --surface-2:#252b34;
+  --ink:#eef1f5;
+  --muted:#9aa3af;
+  --line:#2f3641;
+  --accent:#7f9bff;
+  --danger:#ff7b66;
+  --on-danger:#1a0a07;
+  --scrim:rgba(0,0,0,.6);
+  --w:#e6dba6;
+  --u:#5aa6e8;
+  --b:#a592b4;
+  --r:#f0694d;
+  --g:#5fbb7c;
+  --c:#a2abb5;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  display:flex;flex-direction:column;
+  width:100%;max-width:46rem;margin-inline:auto;
+  padding-inline:16px;padding-block:0;
+  background:var(--bg);color:var(--ink);
+  font-family:var(--font-body);font-size:1rem;line-height:1.35;
+  overflow:hidden;
+  -webkit-text-size-adjust:100%;
+}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.m-w{--pip:var(--w)}
+.m-u{--pip:var(--u)}
+.m-b{--pip:var(--b)}
+.m-r{--pip:var(--r)}
+.m-g{--pip:var(--g)}
+.m-c{--pip:var(--c)}
+
+/* header */
+.top{display:grid;gap:.5rem;padding-block:.75rem .5rem}
+.top-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;min-width:0}
+h1{
+  margin:0;font-family:var(--font-display);font-weight:700;
+  font-size:1.9rem;line-height:1;letter-spacing:.04em;text-transform:uppercase;
+}
+.seg{display:flex;align-items:center;gap:.4rem;min-width:0}
+.seg-label{
+  margin-right:.15rem;font-size:.75rem;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+}
+.seg button{
+  min-width:2.75rem;height:2.5rem;padding:0 .75rem;border-radius:999px;
+  border:1px solid var(--line);background:var(--surface);
+  font-weight:600;font-size:.9375rem;font-variant-numeric:tabular-nums;
+}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.hint{margin:0;font-size:.8125rem;color:var(--muted);text-align:right}
+
+.btn{
+  height:2.75rem;padding:0 1rem;border-radius:.7rem;
+  border:1px solid var(--line);background:var(--surface-2);
+  font-weight:600;font-size:.9375rem;
+}
+.btn.small{height:2.5rem;padding:0 .9rem}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.armed{background:var(--danger);border-color:var(--danger);color:var(--on-danger)}
+.btn.danger{color:var(--danger)}
+.wide-btn{width:100%}
+
+/* board */
+.board{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding-block:.25rem .75rem;
+}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:.75rem}
+@media (min-width:24rem){.tile.wide{grid-column:span 2}}
+
+.tile{
+  display:flex;flex-direction:column;gap:.5rem;min-width:0;
+  padding:.75rem;border-radius:1rem;
+  background:var(--surface);border:1px solid var(--line);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.tile.lethal{border-color:var(--danger)}
+.tile-head{display:flex;align-items:center;gap:.5rem;min-width:0}
+.pip{
+  flex:none;width:.95rem;height:.95rem;border-radius:50%;
+  background:var(--pip);box-shadow:0 0 0 1px var(--line);
+}
+.tile-name{
+  flex:1;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font:600 .8125rem/1.2 var(--font-body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+}
+.icon-btn{
+  flex:none;width:2.5rem;height:2.5rem;margin:-.4rem -.4rem -.4rem 0;
+  display:grid;place-items:center;border:0;border-radius:.6rem;background:transparent;color:var(--muted);
+}
+
+.dial{
+  position:relative;display:grid;grid-template-columns:1fr 1fr;gap:2px;
+  min-height:7.5rem;border-radius:.75rem;overflow:hidden;background:var(--line);
+}
+.tile.wide .dial{min-height:10rem}
+.zone{
+  display:flex;align-items:center;border:0;padding:0 .9rem;
+  background:var(--surface-2);
+  -webkit-tap-highlight-color:transparent;
+}
+.zone.minus{justify-content:flex-start}
+.zone.plus{
+  justify-content:flex-end;
+  background:var(--surface-2);
+  background:color-mix(in srgb,var(--pip) 20%,var(--surface-2));
+}
+.zone:active{background:var(--line)}
+.zone.plus:active{background:color-mix(in srgb,var(--pip) 36%,var(--surface-2))}
+.glyph{font-family:var(--font-display);font-weight:600;font-size:2.1rem;line-height:1;color:var(--muted)}
+.zone.plus .glyph{color:var(--ink)}
+
+.num{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.num-v{
+  font-family:var(--font-display);font-weight:700;font-size:4.25rem;line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:.01em;
+}
+.tile.wide .num-v{font-size:7rem}
+.tile.lethal .num-v{color:var(--danger)}
+
+.foot{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:1.5rem}
+.note{font-size:.8125rem;color:var(--muted)}
+.note.pill{
+  padding:.1rem .6rem;border-radius:999px;font-weight:600;
+  background:var(--danger);color:var(--on-danger);
+}
+.delta{font-size:.9375rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+
+/* edit panel */
+.panel{display:grid;gap:.75rem;padding-top:.5rem;border-top:1px solid var(--line)}
+.field{display:grid;gap:.3rem;min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.flabel{font-size:.75rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.panel input{
+  width:100%;min-width:0;height:2.75rem;padding:0 .75rem;border-radius:.6rem;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink);
+  font:500 1rem var(--font-body);
+  -webkit-user-select:text;user-select:text;
+}
+.swatches{display:flex;flex-wrap:wrap;gap:.6rem;padding:.25rem}
+.sw{
+  width:2.25rem;height:2.25rem;border-radius:50%;border:0;background:var(--pip);
+  box-shadow:0 0 0 1px var(--line);
+}
+.sw[aria-checked="true"]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}
+.actions{display:flex;flex-wrap:wrap;gap:.5rem}
+.actions .btn{flex:1 1 7rem}
+
+/* dock */
+.dock{padding-block:.5rem .75rem}
+
+/* empty state */
+.empty{display:grid;gap:.4rem;padding:2.5rem 1rem;text-align:center;color:var(--muted)}
+.empty-title{margin:0;font-family:var(--font-display);font-size:1.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink)}
+.empty p{margin:0}
+
+/* add sheet */
+.sheet{position:fixed;inset:0;z-index:10;display:flex;align-items:flex-end;justify-content:center}
+.sheet-back{position:absolute;inset:0;background:var(--scrim)}
+.sheet-panel{
+  position:relative;width:100%;max-width:46rem;max-height:82%;overflow-y:auto;
+  padding:1rem 16px calc(1rem + env(safe-area-inset-bottom,0px));
+  background:var(--surface);border-top:1px solid var(--line);border-radius:1.25rem 1.25rem 0 0;
+}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.75rem}
+.sheet-head h2{margin:0;font-family:var(--font-display);font-size:1.5rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));gap:.5rem}
+.chip{
+  display:flex;align-items:center;gap:.6rem;min-width:0;padding:.7rem .75rem;text-align:left;
+  border:1px solid var(--line);border-radius:.8rem;background:var(--surface-2);
+}
+.chip-text{display:grid;min-width:0}
+.chip-name{font-weight:600;font-size:.9375rem;line-height:1.2}
+.chip-meta{font-size:.75rem;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="top-row">
+    <h1>Tally Table</h1>
+    <button id="reset" class="btn small" type="button">New game</button>
+  </div>
+  <div class="top-row">
+    <div class="seg" id="steps" role="group" aria-label="Amount per tap">
+      <span class="seg-label">Per tap</span>
+      <button type="button" data-step="1" aria-pressed="true">1</button>
+      <button type="button" data-step="5" aria-pressed="false">5</button>
+      <button type="button" data-step="10" aria-pressed="false">10</button>
+    </div>
+    <p class="hint">Hold to repeat</p>
+  </div>
+</header>
+
+<main id="board" class="board" aria-label="Counters"></main>
+
+<footer class="dock">
+  <button id="add" class="btn primary wide-btn" type="button">Add counter</button>
+</footer>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-back" id="sheetBack"></div>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Add a counter</h2>
+      <button id="sheetClose" class="btn small" type="button">Close</button>
+    </div>
+    <div id="chips" class="chips"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'tally-table-v1';
+  var COLORS = [['w', 'White'], ['u', 'Blue'], ['b', 'Black'], ['r', 'Red'], ['g', 'Green'], ['c', 'Colorless']];
+  var PRESETS = [
+    { name: 'Life (Commander)', meta: 'Starts at 40', label: 'Life', start: 40, color: 'w', kill: 'low', killAt: 0, wide: true },
+    { name: 'Life (20)', meta: 'Starts at 20', label: 'Life', start: 20, color: 'w', kill: 'low', killAt: 0, wide: true },
+    { name: 'Poison', meta: 'Lethal at 10', label: 'Poison', start: 0, color: 'g', kill: 'high', killAt: 10 },
+    { name: 'Commander damage', meta: 'Lethal at 21', label: 'Commander damage', start: 0, color: 'b', kill: 'high', killAt: 21 },
+    { name: 'Tokens', meta: 'Starts at 0', label: 'Tokens', start: 0, color: 'g' },
+    { name: 'Treasure', meta: 'Starts at 0', label: 'Treasure', start: 0, color: 'c' },
+    { name: 'Energy', meta: 'Starts at 0', label: 'Energy', start: 0, color: 'c' },
+    { name: 'Experience', meta: 'Starts at 0', label: 'Experience', start: 0, color: 'u' },
+    { name: 'Storm count', meta: 'Starts at 0', label: 'Storm', start: 0, color: 'r' },
+    { name: '+1/+1 counters', meta: 'Starts at 0', label: '+1/+1', start: 0, color: 'g' },
+    { name: 'Blank counter', meta: 'Name it yourself', label: 'Counter', start: 0, color: 'c', blank: true }
+  ];
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  function clamp(n) { return Math.max(-999, Math.min(9999, n)); }
+
+  function mk(p) {
+    return {
+      id: uid(), label: p.label, value: p.start, start: p.start, color: p.color,
+      kill: p.kill || null, killAt: p.killAt || 0, wide: !!p.wide
+    };
+  }
+  function defaults() { return [PRESETS[0], PRESETS[2], PRESETS[3], PRESETS[4], PRESETS[5]].map(mk); }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      if (!d || !Array.isArray(d.counters)) return null;
+      var cs = d.counters
+        .filter(function (c) { return c && typeof c.id === 'string' && typeof c.value === 'number'; })
+        .map(function (c) {
+          return {
+            id: c.id,
+            label: String(c.label || 'Counter').slice(0, 24),
+            value: clamp(Math.trunc(c.value) || 0),
+            start: clamp(Math.trunc(c.start) || 0),
+            color: COLORS.some(function (x) { return x[0] === c.color; }) ? c.color : 'c',
+            kill: c.kill === 'low' || c.kill === 'high' ? c.kill : null,
+            killAt: Number(c.killAt) || 0,
+            wide: !!c.wide
+          };
+        });
+      return { step: [1, 5, 10].indexOf(d.step) >= 0 ? d.step : 1, counters: cs };
+    } catch (e) { return null; }
+  }
+
+  var state = load() || { step: 1, counters: defaults() };
+  var deltas = new Map();
+  var editingId = null;
+  var armedDelete = null;
+
+  var saveTimer = null;
+  function flush() {
+    clearTimeout(saveTimer);
+    try { localStorage.setItem(KEY, JSON.stringify({ step: state.step, counters: state.counters })); } catch (e) {}
+  }
+  function save() { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 120); }
+  window.addEventListener('pagehide', flush);
+
+  /* keep the screen on while the game is running */
+  var lock = null;
+  function wake() {
+    try {
+      if (!lock && navigator.wakeLock && document.visibilityState === 'visible') {
+        navigator.wakeLock.request('screen').then(function (l) {
+          lock = l;
+          l.addEventListener('release', function () { lock = null; });
+        }, function () {});
+      }
+    } catch (e) {}
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') wake(); });
+
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    var p = props || {};
+    Object.keys(p).forEach(function (k) {
+      var v = p[k];
+      if (v == null || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      [].concat(arguments[i]).forEach(function (kid) {
+        if (kid == null || kid === false) return;
+        el.append(kid.nodeType ? kid : document.createTextNode(kid));
+      });
+    }
+    return el;
+  }
+
+  function fmt(v) { return String(v).replace('-', '−'); }
+  function fmtDelta(v) { return v === 0 ? '' : (v > 0 ? '+' : '−') + Math.abs(v); }
+  function isLethal(c) {
+    return c.kill === 'low' ? c.value <= c.killAt : c.kill === 'high' ? c.value >= c.killAt : false;
+  }
+  function noteText(c) {
+    return c.kill === 'high' ? 'Lethal at ' + c.killAt : c.kill === 'low' ? 'Out at ' + fmt(c.killAt) : '';
+  }
+  function find(id) { return state.counters.find(function (x) { return x.id === id; }); }
+  function tileEl(id) { return document.querySelector('[data-id="' + id + '"]'); }
+
+  function updateTile(c) {
+    var el = tileEl(c.id);
+    if (!el) return;
+    el.querySelector('.num-v').textContent = fmt(c.value);
+    var l = isLethal(c);
+    el.classList.toggle('lethal', l);
+    var note = el.querySelector('.note');
+    note.textContent = l ? (c.kill === 'low' ? 'Out' : 'Lethal') : noteText(c);
+    note.classList.toggle('pill', l);
+    var d = deltas.get(c.id);
+    el.querySelector('.delta').textContent = d ? fmtDelta(d.v) : '';
+    var vi = document.getElementById('v-' + c.id);
+    if (vi && document.activeElement !== vi) vi.value = String(c.value);
+  }
+
+  function bump(id, d) {
+    var c = find(id);
+    if (!c) return;
+    var nv = clamp(c.value + d);
+    if (nv === c.value) return;
+    var applied = nv - c.value;
+    c.value = nv;
+    var cur = deltas.get(id) || { v: 0, t: 0 };
+    clearTimeout(cur.t);
+    cur.v += applied;
+    cur.t = setTimeout(function () { deltas.delete(id); updateTile(c); }, 1600);
+    deltas.set(id, cur);
+    updateTile(c);
+    save();
+  }
+
+  /* a tap applies on release, so starting a scroll on a tile never changes a number */
+  function zone(c, dir) {
+    var b = h('button', {
+      class: 'zone ' + (dir < 0 ? 'minus' : 'plus'), type: 'button',
+      'aria-label': (dir < 0 ? 'Decrease ' : 'Increase ') + c.label
+    }, h('span', { class: 'glyph', 'aria-hidden': 'true', text: dir < 0 ? '−' : '+' }));
+    var holdTimer = null, repeat = null, down = false, repeating = false;
+    function stop() { clearTimeout(holdTimer); clearInterval(repeat); holdTimer = repeat = null; down = false; repeating = false; }
+    b.addEventListener('pointerdown', function (e) {
+      if (e.button > 0) return;
+      down = true; repeating = false; wake();
+      holdTimer = setTimeout(function () {
+        repeating = true;
+        bump(c.id, dir * state.step);
+        repeat = setInterval(function () { bump(c.id, dir * state.step); }, 110);
+      }, 420);
+    });
+    b.addEventListener('pointerup', function () {
+      var tap = down && !repeating;
+      stop();
+      if (tap) bump(c.id, dir * state.step);
+    });
+    b.addEventListener('pointercancel', stop);
+    b.addEventListener('pointerleave', stop);
+    b.addEventListener('click', function (e) { if (e.detail === 0) bump(c.id, dir * state.step); });
+    return b;
+  }
+
+  function dots() {
+    var s = document.createElement('span');
+    s.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
+    return s;
+  }
+
+  function field(label, forId, input) {
+    return h('div', { class: 'field' }, h('label', { class: 'flabel', 'for': forId, text: label }), input);
+  }
+
+  function editPanel(c) {
+    var nid = 'n-' + c.id;
+    var name = h('input', {
+      id: nid, type: 'text', value: c.label, maxlength: '24', autocomplete: 'off', autocapitalize: 'words',
+      oninput: function (e) {
+        c.label = e.target.value;
+        var t = document.querySelector('[data-id="' + c.id + '"] .tile-name');
+        if (t) t.textContent = c.label || 'Counter';
+        save();
+      }
+    });
+    var val = h('input', {
+      id: 'v-' + c.id, type: 'number', step: '1', value: String(c.value),
+      onchange: function (e) {
+        var n = parseInt(e.target.value, 10);
+        if (isNaN(n)) { e.target.value = String(c.value); return; }
+        c.value = clamp(n); e.target.value = String(c.value);
+        updateTile(c); save();
+      }
+    });
+    var start = h('input', {
+      id: 's-' + c.id, type: 'number', step: '1', value: String(c.start),
+      onchange: function (e) {
+        var n = parseInt(e.target.value, 10);
+        if (isNaN(n)) { e.target.value = String(c.start); return; }
+        c.start = clamp(n); e.target.value = String(c.start); save();
+      }
+    });
+    var sw = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Mana colour' },
+      COLORS.map(function (x) {
+        return h('button', {
+          class: 'sw m-' + x[0], type: 'button', role: 'radio', 'aria-checked': String(c.color === x[0]), 'aria-label': x[1],
+          onclick: function () { c.color = x[0]; save(); render(); }
+        });
+      }));
+    var del = h('button', { class: 'btn danger', type: 'button', text: 'Delete' });
+    del.addEventListener('click', function () {
+      if (armedDelete !== c.id) {
+        armedDelete = c.id;
+        del.textContent = 'Tap again to delete';
+        del.classList.add('armed');
+        setTimeout(function () {
+          if (armedDelete === c.id) { armedDelete = null; del.textContent = 'Delete'; del.classList.remove('armed'); }
+        }, 3000);
+        return;
+      }
+      state.counters = state.counters.filter(function (x) { return x.id !== c.id; });
+      deltas.delete(c.id);
+      editingId = null; armedDelete = null;
+      save(); render();
+    });
+    var done = h('button', { class: 'btn primary', type: 'button', text: 'Done', onclick: function () { editingId = null; armedDelete = null; render(); } });
+    return h('div', { class: 'panel' },
+      field('Name', nid, name),
+      h('div', { class: 'two' }, field('Value', 'v-' + c.id, val), field('New game value', 's-' + c.id, start)),
+      h('div', { class: 'field' }, h('span', { class: 'flabel', text: 'Colour' }), sw),
+      h('div', { class: 'actions' }, del, done));
+  }
+
+  function tile(c) {
+    var editing = editingId === c.id;
+    var root = h('section', {
+      class: 'tile m-' + c.color + (c.wide ? ' wide' : '') + (editing ? ' editing' : ''),
+      'data-id': c.id
+    });
+    var head = h('div', { class: 'tile-head' },
+      h('span', { class: 'pip', 'aria-hidden': 'true' }),
+      h('h2', { class: 'tile-name', text: c.label || 'Counter' }),
+      h('button', {
+        class: 'icon-btn', type: 'button', 'aria-label': 'Edit ' + (c.label || 'counter'), 'aria-expanded': String(editing),
+        onclick: function () { toggleEdit(c.id); }
+      }, dots()));
+    var dial = h('div', { class: 'dial' },
+      zone(c, -1), zone(c, 1),
+      h('div', { class: 'num', 'aria-live': 'polite' }, h('span', { class: 'num-v' })));
+    var foot = h('div', { class: 'foot' }, h('span', { class: 'note' }), h('span', { class: 'delta', 'aria-hidden': 'true' }));
+    root.append(head, dial, foot);
+    if (editing) root.append(editPanel(c));
+    return root;
+  }
+
+  var board = document.getElementById('board');
+  board.addEventListener('contextmenu', function (e) { if (e.target.closest('.tile') && !e.target.closest('input')) e.preventDefault(); });
+
+  function emptyState() {
+    return h('div', { class: 'empty' },
+      h('p', { class: 'empty-title', text: 'Nothing to count yet' }),
+      h('p', { text: 'Add life, poison, commander damage or tokens to start the game.' }));
+  }
+
+  function render() {
+    board.replaceChildren();
+    if (!state.counters.length) { board.append(emptyState()); return; }
+    board.append(h('div', { class: 'grid' }, state.counters.map(tile)));
+    state.counters.forEach(updateTile);
+  }
+
+  function toggleEdit(id) {
+    editingId = editingId === id ? null : id;
+    armedDelete = null;
+    render();
+    if (editingId) { var el = tileEl(editingId); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  }
+
+  /* per-tap amount */
+  var stepBtns = [].slice.call(document.querySelectorAll('#steps button'));
+  function syncSteps() {
+    stepBtns.forEach(function (b) { b.setAttribute('aria-pressed', String(Number(b.dataset.step) === state.step)); });
+  }
+  stepBtns.forEach(function (b) {
+    b.addEventListener('click', function () { state.step = Number(b.dataset.step); syncSteps(); save(); });
+  });
+
+  /* new game (two taps) */
+  var resetBtn = document.getElementById('reset');
+  var resetTimer = null;
+  function disarm() { clearTimeout(resetTimer); resetTimer = null; resetBtn.textContent = 'New game'; resetBtn.classList.remove('armed'); }
+  resetBtn.addEventListener('click', function () {
+    if (!resetTimer) {
+      resetBtn.textContent = 'Reset all?';
+      resetBtn.classList.add('armed');
+      resetTimer = setTimeout(disarm, 3000);
+      return;
+    }
+    disarm();
+    state.counters.forEach(function (c) { c.value = c.start; });
+    deltas.forEach(function (d) { clearTimeout(d.t); });
+    deltas.clear();
+    state.counters.forEach(updateTile);
+    save();
+  });
+
+  /* add sheet */
+  var sheet = document.getElementById('sheet');
+  var chips = document.getElementById('chips');
+  function openSheet() { sheet.hidden = false; document.getElementById('sheetClose').focus(); }
+  function closeSheet() { sheet.hidden = true; document.getElementById('add').focus(); }
+  function addPreset(p) {
+    var c = mk(p);
+    state.counters.push(c);
+    editingId = p.blank ? c.id : null;
+    sheet.hidden = true;
+    save(); render();
+    board.scrollTo({ top: board.scrollHeight, behavior: 'smooth' });
+  }
+  PRESETS.forEach(function (p) {
+    chips.append(h('button', { class: 'chip m-' + p.color, type: 'button', onclick: function () { addPreset(p); } },
+      h('span', { class: 'pip', 'aria-hidden': 'true' }),
+      h('span', { class: 'chip-text' },
+        h('span', { class: 'chip-name', text: p.name }),
+        h('span', { class: 'chip-meta', text: p.meta }))));
+  });
+  document.getElementById('add').addEventListener('click', openSheet);
+  document.getElementById('sheetClose').addEventListener('click', closeSheet);
+  document.getElementById('sheetBack').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
+
+  syncSteps();
+  render();
+})();
+</script>
+
+</body>
+</html>
