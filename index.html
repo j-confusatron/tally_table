@@ -141,8 +141,9 @@ h1{
   flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding-block:.25rem .75rem;
 }
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:.75rem}
-@media (min-width:24rem){.tile.wide{grid-column:span 2}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:.75rem;align-items:start}
+@media (min-width:24rem){.tile.sz-l,.tile.sz-xl{grid-column:span 2}}
+.tile.editing{grid-column:1/-1}
 
 .tile{
   display:flex;flex-direction:column;gap:.5rem;min-width:0;
@@ -169,7 +170,11 @@ h1{
   position:relative;display:grid;grid-template-columns:1fr 1fr;gap:2px;
   min-height:7.5rem;border-radius:.75rem;overflow:hidden;background:var(--line);
 }
-.tile.wide .dial{min-height:10rem}
+.sz-s{padding:.6rem}
+.sz-s .dial{min-height:5rem}
+.sz-l .dial{min-height:10rem}
+.sz-xl .dial{min-height:15rem}
+.sz-s .glyph{font-size:1.6rem}
 .zone{
   display:flex;align-items:center;border:0;padding:0 .9rem;
   background:var(--surface-2);
@@ -191,7 +196,9 @@ h1{
   font-family:var(--font-display);font-weight:700;font-size:4.25rem;line-height:1;
   font-variant-numeric:tabular-nums;letter-spacing:.01em;
 }
-.tile.wide .num-v{font-size:7rem}
+.sz-s .num-v{font-size:2.9rem}
+.sz-l .num-v{font-size:7rem}
+.sz-xl .num-v{font-size:10rem}
 .tile.lethal .num-v{color:var(--danger)}
 
 .foot{display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-height:1.5rem}
@@ -219,6 +226,13 @@ h1{
   box-shadow:0 0 0 1px var(--line);
 }
 .sw[aria-checked="true"]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--ink)}
+.opts{display:flex;flex-wrap:wrap;gap:.4rem}
+.opt{
+  flex:1 1 auto;min-width:3.5rem;height:2.5rem;padding:0 .6rem;border-radius:.6rem;
+  border:1px solid var(--line);background:var(--surface-2);
+  font-weight:600;font-size:.875rem;
+}
+.opt[aria-checked="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .actions{display:flex;flex-wrap:wrap;gap:.5rem}
 .actions .btn{flex:1 1 7rem}
 
@@ -294,9 +308,10 @@ h1{
 
   var KEY = 'tally-table-v1';
   var COLORS = [['w', 'White'], ['u', 'Blue'], ['b', 'Black'], ['r', 'Red'], ['g', 'Green'], ['c', 'Colorless']];
+  var SIZES = [['s', 'Compact'], ['m', 'Standard'], ['l', 'Wide'], ['xl', 'Jumbo']];
   var PRESETS = [
-    { name: 'Life (Commander)', meta: 'Starts at 40', label: 'Life', start: 40, color: 'w', kill: 'low', killAt: 0, wide: true },
-    { name: 'Life (20)', meta: 'Starts at 20', label: 'Life', start: 20, color: 'w', kill: 'low', killAt: 0, wide: true },
+    { name: 'Life (Commander)', meta: 'Starts at 40', label: 'Life', start: 40, color: 'w', kill: 'low', killAt: 0, size: 'l' },
+    { name: 'Life (20)', meta: 'Starts at 20', label: 'Life', start: 20, color: 'w', kill: 'low', killAt: 0, size: 'l' },
     { name: 'Poison', meta: 'Lethal at 10', label: 'Poison', start: 0, color: 'g', kill: 'high', killAt: 10 },
     { name: 'Commander damage', meta: 'Lethal at 21', label: 'Commander damage', start: 0, color: 'b', kill: 'high', killAt: 21 },
     { name: 'Tokens', meta: 'Starts at 0', label: 'Tokens', start: 0, color: 'g' },
@@ -314,7 +329,8 @@ h1{
   function mk(p) {
     return {
       id: uid(), label: p.label, value: p.start, start: p.start, color: p.color,
-      kill: p.kill || null, killAt: p.killAt || 0, wide: !!p.wide
+      kill: p.kill || null, killAt: p.killAt || 0, alert: '',
+      size: p.size || 'm', foot: 'auto', footText: ''
     };
   }
   function defaults() { return [PRESETS[0], PRESETS[2], PRESETS[3], PRESETS[4], PRESETS[5]].map(mk); }
@@ -335,8 +351,11 @@ h1{
             start: clamp(Math.trunc(c.start) || 0),
             color: COLORS.some(function (x) { return x[0] === c.color; }) ? c.color : 'c',
             kill: c.kill === 'low' || c.kill === 'high' ? c.kill : null,
-            killAt: Number(c.killAt) || 0,
-            wide: !!c.wide
+            killAt: Math.trunc(Number(c.killAt)) || 0,
+            alert: String(c.alert || '').slice(0, 16),
+            size: SIZES.some(function (x) { return x[0] === c.size; }) ? c.size : (c.wide ? 'l' : 'm'),
+            foot: c.foot === 'custom' || c.foot === 'off' ? c.foot : 'auto',
+            footText: String(c.footText || '').slice(0, 60)
           };
         });
       return { step: [1, 5, 10].indexOf(d.step) >= 0 ? d.step : 1, counters: cs };
@@ -395,8 +414,11 @@ h1{
   function isLethal(c) {
     return c.kill === 'low' ? c.value <= c.killAt : c.kill === 'high' ? c.value >= c.killAt : false;
   }
+  function alertWord(c) { return c.alert || (c.kill === 'low' ? 'Out' : 'Lethal'); }
   function noteText(c) {
-    return c.kill === 'high' ? 'Lethal at ' + c.killAt : c.kill === 'low' ? 'Out at ' + fmt(c.killAt) : '';
+    if (c.foot === 'off') return '';
+    if (c.foot === 'custom') return c.footText;
+    return c.kill ? alertWord(c) + ' at ' + fmt(c.killAt) : '';
   }
   function find(id) { return state.counters.find(function (x) { return x.id === id; }); }
   function tileEl(id) { return document.querySelector('[data-id="' + id + '"]'); }
@@ -408,7 +430,7 @@ h1{
     var l = isLethal(c);
     el.classList.toggle('lethal', l);
     var note = el.querySelector('.note');
-    note.textContent = l ? (c.kill === 'low' ? 'Out' : 'Lethal') : noteText(c);
+    note.textContent = l ? alertWord(c) : noteText(c);
     note.classList.toggle('pill', l);
     var d = deltas.get(c.id);
     el.querySelector('.delta').textContent = d ? fmtDelta(d.v) : '';
@@ -470,6 +492,18 @@ h1{
     return h('div', { class: 'field' }, h('label', { class: 'flabel', 'for': forId, text: label }), input);
   }
 
+  function opts(label, list, current, pick) {
+    return h('div', { class: 'field' },
+      h('span', { class: 'flabel', text: label }),
+      h('div', { class: 'opts', role: 'radiogroup', 'aria-label': label },
+        list.map(function (x) {
+          return h('button', {
+            class: 'opt', type: 'button', role: 'radio', 'aria-checked': String(current === x[0]), text: x[1],
+            onclick: function () { pick(x[0]); }
+          });
+        })));
+  }
+
   function editPanel(c) {
     var nid = 'n-' + c.id;
     var name = h('input', {
@@ -505,6 +539,30 @@ h1{
           onclick: function () { c.color = x[0]; save(); render(); }
         });
       }));
+    var sizeOpts = opts('Tile size', SIZES, c.size, function (v) { c.size = v; save(); render(); });
+    var footOpts = opts('Footer text', [['auto', 'Auto'], ['custom', 'Custom'], ['off', 'Off']], c.foot, function (v) { c.foot = v; save(); render(); });
+    var footInput = c.foot === 'custom' ? field('Custom footer', 'f-' + c.id, h('input', {
+      id: 'f-' + c.id, type: 'text', value: c.footText, maxlength: '60', autocomplete: 'off',
+      placeholder: 'e.g. Infect at 10',
+      oninput: function (e) { c.footText = e.target.value; updateTile(c); save(); }
+    })) : null;
+    var ruleOpts = opts('Alert rule', [['none', 'None'], ['high', 'At or above'], ['low', 'At or below']], c.kill || 'none', function (v) {
+      c.kill = v === 'none' ? null : v; save(); render();
+    });
+    var ruleFields = c.kill ? h('div', { class: 'two' },
+      field('Threshold', 'k-' + c.id, h('input', {
+        id: 'k-' + c.id, type: 'number', step: '1', value: String(c.killAt),
+        oninput: function (e) {
+          var n = parseInt(e.target.value, 10);
+          if (isNaN(n)) return;
+          c.killAt = clamp(n); updateTile(c); save();
+        }
+      })),
+      field('Alert text', 'a-' + c.id, h('input', {
+        id: 'a-' + c.id, type: 'text', value: c.alert, maxlength: '16', autocomplete: 'off',
+        placeholder: c.kill === 'low' ? 'Out' : 'Lethal',
+        oninput: function (e) { c.alert = e.target.value; updateTile(c); save(); }
+      }))) : null;
     var del = h('button', { class: 'btn danger', type: 'button', text: 'Delete' });
     del.addEventListener('click', function () {
       if (armedDelete !== c.id) {
@@ -526,13 +584,16 @@ h1{
       field('Name', nid, name),
       h('div', { class: 'two' }, field('Value', 'v-' + c.id, val), field('New game value', 's-' + c.id, start)),
       h('div', { class: 'field' }, h('span', { class: 'flabel', text: 'Colour' }), sw),
+      sizeOpts,
+      footOpts, footInput,
+      ruleOpts, ruleFields,
       h('div', { class: 'actions' }, del, done));
   }
 
   function tile(c) {
     var editing = editingId === c.id;
     var root = h('section', {
-      class: 'tile m-' + c.color + (c.wide ? ' wide' : '') + (editing ? ' editing' : ''),
+      class: 'tile m-' + c.color + ' sz-' + c.size + (editing ? ' editing' : ''),
       'data-id': c.id
     });
     var head = h('div', { class: 'tile-head' },
