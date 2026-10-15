@@ -157,6 +157,29 @@ h1{
   flex:none;width:.95rem;height:.95rem;border-radius:50%;
   background:var(--pip);box-shadow:0 0 0 1px var(--line);
 }
+.ico{
+  flex:none;display:inline-grid;place-items:center;width:1.5rem;height:1.5rem;
+  color:color-mix(in srgb,var(--pip) 60%,var(--ink));
+}
+.ico svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(2.75rem,1fr));gap:.4rem}
+.ic{
+  height:2.75rem;display:grid;place-items:center;padding:0;border-radius:.6rem;
+  border:1px solid var(--line);background:var(--surface-2);
+}
+.ic .ico{width:1.6rem;height:1.6rem;color:var(--ink)}
+.ic{position:relative}
+.ic[data-tip]::after{
+  content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + .35rem);transform:translateX(-50%);
+  z-index:5;padding:.25rem .55rem;border-radius:.4rem;white-space:nowrap;pointer-events:none;
+  background:var(--ink);color:var(--bg);font:600 .75rem/1.2 var(--font-body);
+  opacity:0;visibility:hidden;transition:opacity .12s;
+}
+@media (hover:hover){.ic[data-tip]:hover::after{opacity:1;visibility:visible}}
+.ic[data-tip]:focus-visible::after{opacity:1;visibility:visible}
+.ic-none{font-size:.75rem;font-weight:600;color:var(--muted)}
+.ic[aria-checked="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.ic[aria-checked="true"] .ico,.ic[aria-checked="true"].ic-none{color:var(--bg)}
 .tile-name{
   flex:1;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font:600 .8125rem/1.2 var(--font-body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
@@ -309,17 +332,48 @@ h1{
   var KEY = 'tally-table-v1';
   var COLORS = [['w', 'White'], ['u', 'Blue'], ['b', 'Black'], ['r', 'Red'], ['g', 'Green'], ['c', 'Colorless']];
   var SIZES = [['s', 'Compact'], ['m', 'Standard'], ['l', 'Wide'], ['xl', 'Jumbo']];
+  /* Icon library: 24x24 line drawings, stroked with currentColor. Add an entry to offer a new icon. */
+  var ICONS = [
+    ['heart', 'Heart', '<path d="M12 20.5C5 15.5 3 12 3 8.8A4.8 4.8 0 0 1 12 6.6a4.8 4.8 0 0 1 9 2.2c0 3.2-2 6.7-9 11.700z"/>'],
+    ['skull', 'Skull', '<path d="M12 3a8 8 0 0 0-8 8c0 2.6 1.2 4.2 3 5.200V20h10v-3.800c1.8-1 3-2.6 3-5.200a8 8 0 0 0-8-8z"/><circle cx="9" cy="11.5" r="1.6"/><circle cx="15" cy="11.5" r="1.6"/><path d="M10.5 20v-2.500M13.5 20v-2.5"/>'],
+    ['sword', 'Sword', '<path d="M20 4v5L10 19l-5-5L15 4zM5 19l-2 2M8 13l3 3"/>'],
+    ['shield', 'Shield', '<path d="M12 3 4.5 6v5.500c0 4.5 3.2 8 7.5 9.5 4.3-1.5 7.5-5 7.5-9.500V6z"/>'],
+    ['crown', 'Crown', '<path d="M4 18h16M4.5 17 3.5 7.5 8.5 11 12 5l3.5 6 5-3.5-1 9.500z"/>'],
+    ['coin', 'Coin', '<circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.200c-.5-.8-1.5-1.2-2.5-1.2-1.5 0-2.5.8-2.5 2 0 2.7 5 1.3 5 4 0 1.2-1 2-2.5 2-1.1 0-2.1-.5-2.6-1.300M12 6.500V8M12 16v1.5"/>'],
+    ['gem', 'Gem', '<path d="M6.5 4h11l3.5 5-9 11L3 9zM3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/>'],
+    ['bolt', 'Bolt', '<path d="M13 2.5 5 13.500h6l-1 8 8-11h-6z"/>'],
+    ['star', 'Star', '<path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.100L12 16.800l-5.4 2.9 1.1-6.100L3.2 9.400l6.1-.8z"/>'],
+    ['flame', 'Flame', '<path d="M12 21c-4 0-6.5-2.7-6.5-6 0-3.5 2.8-5 3.5-9 2.5 1.5 3.5 3.5 3.5 5.5.8-.5 1.5-1.5 1.5-3 2 1.5 4 4 4 6.5 0 3.3-2.5 6-6 6z"/>'],
+    ['drop', 'Water', '<path d="M12 3C8 8.5 5.5 11.5 5.5 15a6.5 6.5 0 0 0 13 0C18.5 11.5 16 8.5 12 3z"/>'],
+    ['leaf', 'Leaf', '<path d="M5 19C4 10 9 5 20 4c0 11-5 16-13 15zM5 19c3-4 6-7 10-9"/>'],
+    ['sun', 'Sun', '<circle cx="12" cy="12" r="4"/><path d="M12 2.500v3M12 18.500v3M2.5 12h3M18.5 12h3M5.3 5.300l2.1 2.100M16.6 16.600l2.1 2.100M5.3 18.700l2.1-2.100M16.6 7.400l2.1-2.1"/>'],
+    ['moon', 'Moon', '<path d="M20 14.500A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.500z"/>'],
+    ['snow', 'Snowflake', '<path d="M12 3v18M4.2 7.500l15.6 9M4.2 16.500l15.6-9M9.5 4.5 12 6.500l2.5-2M9.5 19.5 12 17.500l2.5 2"/>'],
+    ['eye', 'Eye', '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'],
+    ['book', 'Book', '<path d="M4 5.500A1.5 1.5 0 0 1 5.5 4H20v14H5.500A1.5 1.5 0 0 0 4 19.500zM4 19.500A1.5 1.5 0 0 0 5.5 21H20v-3"/>'],
+    ['wand', 'Wand', '<path d="m4 20 11-11M14 6l4 4M18 3v3M16.5 4.500h3M20 12v2M19 13h2M7 4v2M6 5h2"/>'],
+    ['swirl', 'Swirl', '<path d="M12 12m-1 0a1 1 0 1 0 2 0 1 1 0 1 0-2 0M12 11c0-2.5 3.5-2.5 3.5.5S11 16.5 8.5 14 8 7 12 6s8 2.5 8 6.5-3.5 8-8 8"/>'],
+    ['plus', 'Plus', '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>'],
+    ['clock', 'Clock', '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/>'],
+    ['key', 'Key', '<circle cx="8" cy="15" r="4"/><path d="m11 12 8.5-8.500M16 7l2.5 2.500M14 9l2 2"/>'],
+    ['paw', 'Beast', '<circle cx="6.5" cy="10" r="1.8"/><circle cx="10" cy="6.5" r="1.8"/><circle cx="14" cy="6.5" r="1.8"/><circle cx="17.5" cy="10" r="1.8"/><path d="M12 12c-3 0-5.5 3-5.5 5.2 0 1.8 1.8 2.3 3 1.8 1-.4 1.6-.6 2.5-.6s1.5.2 2.5.6c1.2.5 3-.1 3-1.800C17.5 15 15 12 12 12z"/>'],
+    ['food', 'Food', '<path d="M12 7.500C10 6 4.500 7 4.500 13c0 4 3 8 5.500 8 1 0 1.500-.5 2-.5s1 .5 2 .5c2.500 0 5.500-4 5.500-8 0-6-5.500-7-7.500-5.500zM12 7.500c0-2 1-3.500 2.500-4"/>'],
+    ['x', 'Cross', '<path d="M6 6l12 12M18 6 6 18"/>']
+  ];
+  var ICON_MAP = {};
+  ICONS.forEach(function (x) { ICON_MAP[x[0]] = x; });
+
   var PRESETS = [
-    { name: 'Life (Commander)', meta: 'Starts at 40', label: 'Life', start: 40, color: 'w', kill: 'low', killAt: 0, size: 'l' },
-    { name: 'Life (20)', meta: 'Starts at 20', label: 'Life', start: 20, color: 'w', kill: 'low', killAt: 0, size: 'l' },
-    { name: 'Poison', meta: 'Lethal at 10', label: 'Poison', start: 0, color: 'g', kill: 'high', killAt: 10 },
-    { name: 'Commander damage', meta: 'Lethal at 21', label: 'Commander damage', start: 0, color: 'b', kill: 'high', killAt: 21 },
-    { name: 'Tokens', meta: 'Starts at 0', label: 'Tokens', start: 0, color: 'g' },
-    { name: 'Treasure', meta: 'Starts at 0', label: 'Treasure', start: 0, color: 'c' },
-    { name: 'Energy', meta: 'Starts at 0', label: 'Energy', start: 0, color: 'c' },
-    { name: 'Experience', meta: 'Starts at 0', label: 'Experience', start: 0, color: 'u' },
-    { name: 'Storm count', meta: 'Starts at 0', label: 'Storm', start: 0, color: 'r' },
-    { name: '+1/+1 counters', meta: 'Starts at 0', label: '+1/+1', start: 0, color: 'g' },
+    { name: 'Life (Commander)', meta: 'Starts at 40', label: 'Life', start: 40, color: 'w', icon: 'heart', kill: 'low', killAt: 0, size: 'l' },
+    { name: 'Life (20)', meta: 'Starts at 20', label: 'Life', start: 20, color: 'w', icon: 'heart', kill: 'low', killAt: 0, size: 'l' },
+    { name: 'Poison', meta: 'Lethal at 10', label: 'Poison', start: 0, color: 'g', icon: 'skull', kill: 'high', killAt: 10 },
+    { name: 'Commander damage', meta: 'Lethal at 21', label: 'Commander damage', start: 0, color: 'b', icon: 'sword', kill: 'high', killAt: 21 },
+    { name: 'Tokens', meta: 'Starts at 0', label: 'Tokens', start: 0, color: 'g', icon: 'paw' },
+    { name: 'Treasure', meta: 'Starts at 0', label: 'Treasure', start: 0, color: 'c', icon: 'coin' },
+    { name: 'Energy', meta: 'Starts at 0', label: 'Energy', start: 0, color: 'c', icon: 'bolt' },
+    { name: 'Experience', meta: 'Starts at 0', label: 'Experience', start: 0, color: 'u', icon: 'star' },
+    { name: 'Storm count', meta: 'Starts at 0', label: 'Storm', start: 0, color: 'r', icon: 'swirl' },
+    { name: '+1/+1 counters', meta: 'Starts at 0', label: '+1/+1', start: 0, color: 'g', icon: 'plus' },
     { name: 'Blank counter', meta: 'Name it yourself', label: 'Counter', start: 0, color: 'c', blank: true }
   ];
 
@@ -329,7 +383,7 @@ h1{
   function mk(p) {
     return {
       id: uid(), label: p.label, value: p.start, start: p.start, color: p.color,
-      kill: p.kill || null, killAt: p.killAt || 0, alert: '',
+      icon: p.icon || '', kill: p.kill || null, killAt: p.killAt || 0, alert: '',
       size: p.size || 'm', foot: 'auto', footText: ''
     };
   }
@@ -350,6 +404,7 @@ h1{
             value: clamp(Math.trunc(c.value) || 0),
             start: clamp(Math.trunc(c.start) || 0),
             color: COLORS.some(function (x) { return x[0] === c.color; }) ? c.color : 'c',
+            icon: ICON_MAP[c.icon] ? c.icon : '',
             kill: c.kill === 'low' || c.kill === 'high' ? c.kill : null,
             killAt: Math.trunc(Number(c.killAt)) || 0,
             alert: String(c.alert || '').slice(0, 16),
@@ -407,6 +462,14 @@ h1{
       });
     }
     return el;
+  }
+
+  function iconEl(name) {
+    var ic = ICON_MAP[name];
+    if (!ic) return h('span', { class: 'pip', 'aria-hidden': 'true' });
+    var s = h('span', { class: 'ico', 'aria-hidden': 'true' });
+    s.innerHTML = '<svg viewBox="0 0 24 24">' + ic[2] + '</svg>';
+    return s;
   }
 
   function fmt(v) { return String(v).replace('-', '−'); }
@@ -539,6 +602,16 @@ h1{
           onclick: function () { c.color = x[0]; save(); render(); }
         });
       }));
+    var picker = h('div', { class: 'icons', role: 'radiogroup', 'aria-label': 'Icon' },
+      [h('button', {
+        class: 'ic ic-none', type: 'button', role: 'radio', 'aria-checked': String(!c.icon), 'aria-label': 'No icon', 'data-tip': 'No icon', text: 'None',
+        onclick: function () { c.icon = ''; save(); render(); }
+      })].concat(ICONS.map(function (x) {
+        return h('button', {
+          class: 'ic', type: 'button', role: 'radio', 'aria-checked': String(c.icon === x[0]), 'aria-label': x[1], 'data-tip': x[1],
+          onclick: function () { c.icon = x[0]; save(); render(); }
+        }, iconEl(x[0]));
+      })));
     var sizeOpts = opts('Tile size', SIZES, c.size, function (v) { c.size = v; save(); render(); });
     var footOpts = opts('Footer text', [['auto', 'Auto'], ['custom', 'Custom'], ['off', 'Off']], c.foot, function (v) { c.foot = v; save(); render(); });
     var footInput = c.foot === 'custom' ? field('Custom footer', 'f-' + c.id, h('input', {
@@ -584,6 +657,7 @@ h1{
       field('Name', nid, name),
       h('div', { class: 'two' }, field('Value', 'v-' + c.id, val), field('New game value', 's-' + c.id, start)),
       h('div', { class: 'field' }, h('span', { class: 'flabel', text: 'Colour' }), sw),
+      h('div', { class: 'field' }, h('span', { class: 'flabel', text: 'Icon' }), picker),
       sizeOpts,
       footOpts, footInput,
       ruleOpts, ruleFields,
@@ -597,7 +671,7 @@ h1{
       'data-id': c.id
     });
     var head = h('div', { class: 'tile-head' },
-      h('span', { class: 'pip', 'aria-hidden': 'true' }),
+      iconEl(c.icon),
       h('h2', { class: 'tile-name', text: c.label || 'Counter' }),
       h('button', {
         class: 'icon-btn', type: 'button', 'aria-label': 'Edit ' + (c.label || 'counter'), 'aria-expanded': String(editing),
@@ -678,7 +752,7 @@ h1{
   }
   PRESETS.forEach(function (p) {
     chips.append(h('button', { class: 'chip m-' + p.color, type: 'button', onclick: function () { addPreset(p); } },
-      h('span', { class: 'pip', 'aria-hidden': 'true' }),
+      iconEl(p.icon),
       h('span', { class: 'chip-text' },
         h('span', { class: 'chip-name', text: p.name }),
         h('span', { class: 'chip-meta', text: p.meta }))));
