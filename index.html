@@ -184,6 +184,10 @@ h1{
   flex:1;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font:600 .8125rem/1.2 var(--font-body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
 }
+.tile-name{cursor:grab;touch-action:none}
+.tile.dragging{position:relative;z-index:4;opacity:.92;cursor:grabbing;box-shadow:0 .75rem 1.75rem var(--scrim)}
+.tile.dragging .tile-name{cursor:grabbing}
+.tile.drop-target{outline:2px dashed var(--accent);outline-offset:3px}
 .icon-btn{
   flex:none;width:2.5rem;height:2.5rem;margin:-.4rem -.4rem -.4rem 0;
   display:grid;place-items:center;border:0;border-radius:.6rem;background:transparent;color:var(--muted);
@@ -261,6 +265,8 @@ h1{
 
 /* dock */
 .dock{padding-block:.5rem .75rem}
+.links{display:flex;justify-content:center;gap:1.5rem;margin-top:.5rem}
+.links a{display:inline-flex;align-items:center;min-height:2.5rem;font-size:.875rem;font-weight:600;color:var(--accent)}
 
 /* empty state */
 .empty{display:grid;gap:.4rem;padding:2.5rem 1rem;text-align:center;color:var(--muted)}
@@ -312,6 +318,10 @@ h1{
 
 <footer class="dock">
   <button id="add" class="btn primary wide-btn" type="button">Add counter</button>
+  <nav class="links" aria-label="Reference sheets">
+    <a href="https://caseywarrer.com/wp-content/uploads/2022/12/mtg-cheat-sheet.pdf" target="_blank" rel="noopener noreferrer">Cheat Sheet</a>
+    <a href="https://caseywarrer.com/wp-content/uploads/2023/01/mtg-cheat-sheet-quick-reference.pdf" target="_blank" rel="noopener noreferrer">Quick Reference</a>
+  </nav>
 </footer>
 
 <div id="sheet" class="sheet" hidden>
@@ -664,15 +674,82 @@ h1{
       h('div', { class: 'actions' }, del, done));
   }
 
+  /* drag a tile by its title to reorder; the drop lands on whichever tile is under the pointer */
+  function dragByTitle(handle, c) {
+    var tileNode, sx, sy, sScroll, active = false, target = null, last = null, scroller = null;
+    function over() {
+      var found = null;
+      if (!last) return null;
+      [].forEach.call(board.querySelectorAll('.tile'), function (t) {
+        if (t === tileNode) return;
+        var r = t.getBoundingClientRect();
+        if (last.x >= r.left && last.x <= r.right && last.y >= r.top && last.y <= r.bottom) found = t;
+      });
+      return found;
+    }
+    function place() {
+      tileNode.style.transform = 'translate(' + (last.x - sx) + 'px,' + (last.y - sy + board.scrollTop - sScroll) + 'px)';
+      var t = over();
+      if (t !== target) {
+        if (target) target.classList.remove('drop-target');
+        target = t;
+        if (target) target.classList.add('drop-target');
+      }
+    }
+    function end(commit) {
+      clearInterval(scroller); scroller = null;
+      var wasActive = active, to = target && target.getAttribute('data-id');
+      active = false; target = null;
+      if (tileNode) { tileNode.classList.remove('dragging'); tileNode.style.transform = ''; }
+      [].forEach.call(board.querySelectorAll('.drop-target'), function (t) { t.classList.remove('drop-target'); });
+      if (!wasActive || !commit || !to) return;
+      var from = state.counters.indexOf(c), at = state.counters.indexOf(find(to));
+      if (from < 0 || at < 0 || from === at) return;
+      state.counters.splice(from, 1);
+      state.counters.splice(at, 0, c);
+      save(); render();
+    }
+    handle.addEventListener('pointerdown', function (e) {
+      if (e.button > 0 || active) return;
+      tileNode = handle.closest('.tile');
+      sx = e.clientX; sy = e.clientY; sScroll = board.scrollTop; last = { x: sx, y: sy };
+      handle.setPointerCapture(e.pointerId);
+      active = false;
+      handle._armed = true;
+    });
+    handle.addEventListener('pointermove', function (e) {
+      if (!handle._armed) return;
+      last = { x: e.clientX, y: e.clientY };
+      if (!active) {
+        if (Math.abs(last.x - sx) + Math.abs(last.y - sy) < 8) return;
+        active = true;
+        tileNode.classList.add('dragging');
+        scroller = setInterval(function () {
+          var r = board.getBoundingClientRect(), edge = 48;
+          if (last.y < r.top + edge) board.scrollTop -= 10;
+          else if (last.y > r.bottom - edge) board.scrollTop += 10;
+          else return;
+          place();
+        }, 16);
+      }
+      place();
+    });
+    function up(commit) { return function () { if (!handle._armed) return; handle._armed = false; end(commit); }; }
+    handle.addEventListener('pointerup', up(true));
+    handle.addEventListener('pointercancel', up(false));
+  }
+
   function tile(c) {
     var editing = editingId === c.id;
     var root = h('section', {
       class: 'tile m-' + c.color + ' sz-' + c.size + (editing ? ' editing' : ''),
       'data-id': c.id
     });
+    var title = h('h2', { class: 'tile-name', text: c.label || 'Counter', title: 'Drag to reorder' });
+    dragByTitle(title, c);
     var head = h('div', { class: 'tile-head' },
       iconEl(c.icon),
-      h('h2', { class: 'tile-name', text: c.label || 'Counter' }),
+      title,
       h('button', {
         class: 'icon-btn', type: 'button', 'aria-label': 'Edit ' + (c.label || 'counter'), 'aria-expanded': String(editing),
         onclick: function () { toggleEdit(c.id); }
